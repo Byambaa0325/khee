@@ -1,0 +1,35 @@
+{
+  "name": "khee",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mongolian ornament (хээ) by rule: the ulzii endless knot, the alkhan khee hammer border and ugalz horn scrolls, generated as exact SVG. Library plus the self-serve generator at avdar.me/khee.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": "./dist/lib/index.js"
+  },
+  "scripts": {
+    "dev": "npm run build:client && tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json && npm run build:client",
+    "build:client": "esbuild src/client/main.ts --bundle --format=esm --target=es2022 --minify --outfile=dist/public/app.js",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "render": "tsx scripts/render.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.4",
+    "@resvg/resvg-js": "^2.6.2",
+    "hono": "^4.13.13"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9.3",
+    "vitest": "^5.0.3"
+  }
+}
