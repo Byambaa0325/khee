@@ -168,6 +168,8 @@ export const ugalz: Pattern = {
     },
     ...ribbonParams({ width: 9, outline: 2.5, centre: 2, fill: PALETTE.green, centreColor: PALETTE.yellow }),
   ],
+  palette: { ink: 'outline', fill: 'band', line: 'line', bg: 'ground' },
+  thumbnail: { form: 'horns', radius: 16, stem: 10, band: 4.5, outline: 1.25, centre: 1, padding: 3 },
   render(v: Values): Rendered {
     const warnings: Text[] = [];
     const ribbon = ribbonOf(v);

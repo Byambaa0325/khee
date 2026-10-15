@@ -23,6 +23,8 @@ export interface Strings {
   reset: string;
   update: string;
   none: string;
+  palettes: string;
+  palettesHint: string;
   pixels: string;
   apiTitle: string;
   apiText: string;
@@ -31,6 +33,7 @@ export interface Strings {
   howTitle: string;
   sourcesText: string;
   sourceLink: string;
+  colourLink: string;
   partOf: string;
   avdar: string;
   switchTo: string;
@@ -55,6 +58,8 @@ export const STRINGS: Record<Lang, Strings> = {
     reset: 'Reset',
     update: 'Update',
     none: 'None',
+    palettes: 'Palettes',
+    palettesHint: 'Each palette comes from Mongolian colour symbolism. Tap one to apply it, then fine-tune any colour below.',
     pixels: 'px',
     apiTitle: 'Use it as an image URL',
     apiText: 'Every setting is in the address. The same settings under /api return the image itself, so the link works in an <img> tag or a stylesheet.',
@@ -63,6 +68,7 @@ export const STRINGS: Record<Lang, Strings> = {
     howTitle: 'How it is drawn',
     sourcesText: 'The rules, their sources and the checks behind them are written up in the repository.',
     sourceLink: 'Source code and documentation (MIT)',
+    colourLink: 'What the palettes mean, and their sources',
     partOf: 'A small app from',
     avdar: "Byambaa's Avdar",
     switchTo: 'Монгол',
@@ -100,6 +106,8 @@ export const STRINGS: Record<Lang, Strings> = {
     reset: 'Анхны утга',
     update: 'Шинэчлэх',
     none: 'Байхгүй',
+    palettes: 'Өнгөний хослол',
+    palettesHint: 'Хослол бүр монгол өнгөний бэлгэдэлд тулгуурласан. Нэгийг дарж хэрэглээд, доорх өнгө бүрийг хүссэнээрээ тохируулна уу.',
     pixels: 'px',
     apiTitle: 'Зургийн холбоос болгон ашиглах',
     apiText: 'Бүх тохиргоо хаягт байна. Ижил тохиргоог /api хаягаар дуудвал зураг өөрөө ирэх тул <img> эсвэл CSS-д шууд хэрэглэж болно.',
@@ -108,6 +116,7 @@ export const STRINGS: Record<Lang, Strings> = {
     howTitle: 'Хэрхэн зурдаг вэ',
     sourcesText: 'Дүрэм, эх сурвалж, шалгалтын дэлгэрэнгүйг агуулахаас үзнэ үү.',
     sourceLink: 'Эх код ба баримт бичиг (MIT)',
+    colourLink: 'Өнгөний хослолын утга, эх сурвалж',
     partOf: 'Жижиг апп ·',
     avdar: 'Бямбаагийн Авдар',
     switchTo: 'English',

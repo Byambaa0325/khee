@@ -3,7 +3,7 @@
  * with it, every change re-renders in the browser with the same library the server uses, and the
  * address, download links and API URL follow the settings.
  */
-import { parseValues, patternById, toQuery, type Rendered, type Values } from '../lib/index.js';
+import { PALETTES, matchingPalette, paletteValues, parseValues, patternById, toQuery, type Rendered, type Values } from '../lib/index.js';
 
 const body = document.body;
 const pattern = patternById(body.dataset.pattern ?? '');
@@ -70,6 +70,7 @@ if (pattern && form) {
       queued = false;
       const values = read();
       show(pattern.render(values), toQuery(pattern.params, values));
+      markPalette();
     });
   };
 
@@ -83,30 +84,75 @@ if (pattern && form) {
     range.tabIndex = 0;
   });
 
-  // Colours: the picker and the "none" box feed the text field, which the form submits.
-  form.querySelectorAll<HTMLElement>('[data-color]').forEach((field) => {
+  // Colours: the well (native picker), the chips and the text box all set one value; the text box is
+  // what the form submits.
+  const fullHex = (c: string) => {
+    const v = c.trim().toLowerCase();
+    const h = v.startsWith('#') ? v : `#${v}`;
+    if (/^#[0-9a-f]{6}$/.test(h)) return h;
+    if (/^#[0-9a-f]{3}$/.test(h)) return `#${[...h.slice(1)].map((x) => x + x).join('')}`;
+    return null;
+  };
+  /** Reflects a field's current value in its well and chips. */
+  const paintField = (field: HTMLElement) => {
     const text = form.elements.namedItem(field.dataset.color!) as HTMLInputElement;
+    const none = text.value.trim().toLowerCase() === 'none';
+    const hex = fullHex(text.value);
+    field.classList.toggle('is-none', none);
+    const well = field.querySelector<HTMLElement>('.well');
     const swatch = field.querySelector<HTMLInputElement>('input[type=color]');
-    const none = field.querySelector<HTMLInputElement>('input[data-none-for]');
-    const setNone = (on: boolean) => {
-      field.classList.toggle('is-none', on);
-      if (none) none.checked = on;
-    };
-    swatch?.addEventListener('input', () => {
-      text.value = swatch.value;
-      setNone(false);
+    if (hex) {
+      well?.style.setProperty('--c', hex);
+      if (swatch) swatch.value = hex;
+    }
+    field.querySelectorAll<HTMLButtonElement>('.chip').forEach((chip) => {
+      chip.setAttribute('aria-pressed', String(chip.dataset.set === 'none' ? none : !none && chip.dataset.set === hex));
     });
-    text.addEventListener('input', () => {
-      const v = text.value.trim().toLowerCase();
-      const hex = v.startsWith('#') ? v : `#${v}`;
-      if (swatch && /^#[0-9a-f]{6}$/.test(hex)) swatch.value = hex;
-      if (none) setNone(v === 'none');
-    });
-    none?.addEventListener('change', () => {
-      text.value = none.checked ? 'none' : (swatch?.value ?? '#000000');
-      setNone(none.checked);
+  };
+  const setColour = (key: string, value: string) => {
+    const text = form.elements.namedItem(key) as HTMLInputElement | null;
+    const field = form.querySelector<HTMLElement>(`[data-color="${key}"]`);
+    if (!text || !field) return;
+    text.value = value;
+    paintField(field);
+  };
+  form.querySelectorAll<HTMLElement>('[data-color]').forEach((field) => {
+    const key = field.dataset.color!;
+    const text = form.elements.namedItem(key) as HTMLInputElement;
+    field.querySelector<HTMLInputElement>('input[type=color]')?.addEventListener('input', (e) => setColour(key, (e.target as HTMLInputElement).value));
+    text.addEventListener('input', () => paintField(field));
+    field.querySelectorAll<HTMLButtonElement>('.chip').forEach((chip) =>
+      chip.addEventListener('click', () => {
+        setColour(key, chip.dataset.set!);
+        update();
+      }),
+    );
+  });
+
+  // Palette cards are links that also work without script; here they apply in place.
+  const meaning = $('pal-meaning');
+  const defaultMeaning = meaning?.textContent ?? '';
+  const cards = [...document.querySelectorAll<HTMLAnchorElement>('a.pal')];
+  const markPalette = () => {
+    const values = read();
+    const active = matchingPalette(pattern, values);
+    cards.forEach((c) => (c.dataset.palette === active?.id ? c.setAttribute('aria-current', 'true') : c.removeAttribute('aria-current')));
+    if (meaning) meaning.textContent = active ? `${active.name[lang]}: ${active.meaning[lang]}` : defaultMeaning;
+  };
+  cards.forEach((card) => {
+    card.addEventListener('click', (e) => {
+      const palette = PALETTES.find((p) => p.id === card.dataset.palette);
+      if (!palette) return;
+      e.preventDefault();
+      for (const [key, value] of Object.entries(paletteValues(pattern, palette))) setColour(key, String(value));
       update();
     });
+    // Hovering or focusing a card shows its meaning; leaving restores the active one.
+    const show = () => meaning && (meaning.textContent = `${card.querySelector('.pal-name')?.textContent}: ${card.dataset.meaning}`);
+    card.addEventListener('mouseenter', show);
+    card.addEventListener('focus', show);
+    card.addEventListener('mouseleave', markPalette);
+    card.addEventListener('blur', markPalette);
   });
 
   form.addEventListener('input', update);

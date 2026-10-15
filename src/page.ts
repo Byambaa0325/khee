@@ -1,6 +1,6 @@
 import { BASE_PATH, PNG_LIMITS, PUBLIC_ORIGIN, PUBLIC_URL, REPO_URL } from './config.js';
 import { LOCALE, STRINGS, type Lang } from './i18n.js';
-import { PATTERNS, bandRects, toQuery, type ParamSpec, type Pattern, type Rendered, type Values } from './lib/index.js';
+import { CHIPS, PALETTES, PATTERNS, bandRects, defaults, matchingPalette, paletteValues, toQuery, type ParamSpec, type Pattern, type Rendered, type Values } from './lib/index.js';
 
 const ESC: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (s: string): string => s.replace(/[&<>"']/g, (ch) => ESC[ch]!);
@@ -87,8 +87,32 @@ input[type=range]{flex:1;accent-color:var(--accent);min-width:0}
 input[type=number],input[type=text],select{font:inherit;font-size:15px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
 input[type=number]{width:84px;font-variant-numeric:tabular-nums}
 input[type=text]{width:110px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:14px}
-input[type=color]{width:40px;height:34px;padding:2px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer}
-.field.is-none input[type=color]{opacity:.35}
+.well{position:relative;flex:none;width:46px;height:46px;border-radius:50%;background:var(--c);cursor:pointer;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.18),0 1px 3px rgba(0,0,0,.18);transition:transform .12s}
+.well:hover{transform:scale(1.06)}
+.well:focus-within{outline:2px solid var(--focus);outline-offset:2px}
+.well input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0}
+.is-none .well{background:conic-gradient(#ddd 25%,#fff 0 50%,#ddd 0 75%,#fff 0) 0 0/10px 10px}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{width:26px;height:26px;border-radius:50%;border:0;padding:0;background:var(--c);cursor:pointer;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.2);transition:transform .12s,box-shadow .12s}
+.chip:hover{transform:scale(1.18)}
+.chip:active{transform:scale(.92)}
+.chip[aria-pressed="true"]{box-shadow:0 0 0 2px var(--paper),0 0 0 4px var(--ink)}
+.chip.none{background:linear-gradient(135deg,transparent 45%,#c0392b 45% 55%,transparent 55%),conic-gradient(#ddd 25%,#fff 0 50%,#ddd 0 75%,#fff 0) 0 0/8px 8px}
+.palettes{display:flex;flex-direction:column;gap:8px}
+.palettes>.label{font-size:15px}
+.pal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.pal{display:flex;flex-direction:column;gap:5px;padding:6px;border:1px solid var(--line);border-radius:12px;background:#fff;
+  text-decoration:none;font-size:12.5px;line-height:1.25;transition:transform .12s,box-shadow .12s,border-color .12s}
+.pal:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(27,18,11,.1)}
+.pal:active{transform:translateY(0) scale(.97)}
+.pal[aria-current="true"]{border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink)}
+.pal .thumb{height:58px;border-radius:8px;background:var(--g);display:grid;place-items:center;overflow:hidden;padding:4px}
+.pal .thumb svg{max-width:100%;max-height:100%;width:auto;height:auto;display:block}
+.pal .dots{display:flex;gap:3px}
+.pal .dots i{width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:inset 0 0 0 1px rgba(0,0,0,.2)}
+#pal-meaning{min-height:2.6em}
 .seg{align-self:flex-start;display:inline-flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
 .seg label{position:relative;cursor:pointer}
 .seg input{position:absolute;opacity:0;inset:0;cursor:pointer}
@@ -132,17 +156,42 @@ function choiceField(p: Extract<ParamSpec, { kind: 'choice' }>, value: string, l
   return `<div class="field" role="radiogroup" aria-labelledby="${id}"><span class="label" id="${id}">${esc(p.label[lang])}</span><div class="seg">${opts}</div>${hint}</div>`;
 }
 
+/** A 6-digit hex for <input type=color>, which rejects the 3-digit form and "none". */
+const fullHex = (c: string, fallback = '#ffffff'): string =>
+  /^#[0-9a-f]{6}$/i.test(c) ? c.toLowerCase() : /^#[0-9a-f]{3}$/i.test(c) ? `#${[...c.slice(1)].map((x) => x + x).join('')}`.toLowerCase() : fallback;
+
 function colorField(p: Extract<ParamSpec, { kind: 'color' }>, value: string, lang: Lang): string {
   const id = `f-${p.key}`;
   const none = value === 'none';
-  const swatch = none ? p.default === 'none' ? '#ffffff' : p.default : value;
-  const noneBtn = p.allowNone
-    ? `<label class="check jsonly"><input type="checkbox" data-none-for="${p.key}"${none ? ' checked' : ''}>${esc(STRINGS[lang].none)}</label>`
+  const current = fullHex(value, p.default === 'none' ? '#ffffff' : p.default);
+  const chip = (c: string) =>
+    `<button type="button" class="chip" data-set="${c}" style="--c:${c}" title="${c}" aria-label="${c}" aria-pressed="${!none && fullHex(value, '') === c}"></button>`;
+  const noneChip = p.allowNone
+    ? `<button type="button" class="chip none" data-set="none" title="${esc(STRINGS[lang].none)}" aria-label="${esc(STRINGS[lang].none)}" aria-pressed="${none}"></button>`
     : '';
+  // The big well opens the native picker; the text box is what the form submits.
   return `<div class="field${none ? ' is-none' : ''}" data-color="${p.key}">
 <label for="${id}">${esc(p.label[lang])}</label>
-<div class="row"><input type="color" value="${esc(swatch)}" data-swatch-for="${p.key}" aria-label="${esc(p.label[lang])}"><input type="text" id="${id}" name="${p.key}" value="${esc(value)}" spellcheck="false" autocomplete="off" maxlength="7">${noneBtn}</div>
+<div class="row"><label class="well" style="--c:${current}"><input type="color" value="${current}" data-swatch-for="${p.key}" aria-label="${esc(p.label[lang])}"></label><input type="text" id="${id}" name="${p.key}" value="${esc(value)}" spellcheck="false" autocomplete="off" maxlength="7"></div>
+<div class="chips jsonly">${noneChip}${CHIPS.map(chip).join('')}</div>
 ${p.hint ? `<p class="hint">${esc(p.hint[lang])}</p>` : ''}</div>`;
+}
+
+/** Palette cards: a small render of the pattern in each palette, applied with one tap. */
+function paletteCards(pattern: Pattern, values: Values, lang: Lang): string {
+  if (!pattern.palette || PALETTES.length === 0) return '';
+  const s = STRINGS[lang];
+  const active = matchingPalette(pattern, values);
+  const cards = PALETTES.map((p) => {
+    const colours = paletteValues(pattern, p);
+    const thumb = pattern.render({ ...defaults(pattern.params), ...pattern.thumbnail, ...colours }).svg;
+    const query = toQuery(pattern.params, { ...values, ...colours });
+    const dots = [p.outline, p.band, p.line, p.accent].map((c) => `<i style="--c:${c}"></i>`).join('');
+    return `<a class="pal" href="${pagePath(lang, pattern.id)}${query ? `?${query}` : ''}" data-palette="${p.id}" data-meaning="${esc(p.meaning[lang])}" title="${esc(p.meaning[lang])}"${p === active ? ' aria-current="true"' : ''}>
+<span class="thumb" style="--g:${p.ground}">${thumb}</span><span class="pal-name">${esc(p.name[lang])}</span><span class="dots">${dots}</span></a>`;
+  }).join('');
+  return `<div class="palettes"><span class="label">${esc(s.palettes)}</span><div class="pal-grid">${cards}</div>
+<p class="hint" id="pal-meaning">${esc(active ? `${active.name[lang]}: ${active.meaning[lang]}` : s.palettesHint)}</p></div>`;
 }
 
 function boolField(p: Extract<ParamSpec, { kind: 'bool' }>, value: boolean, lang: Lang): string {
@@ -169,7 +218,8 @@ export function renderForm(pattern: Pattern, values: Values, lang: Lang): string
         }
       })
       .join('');
-    return fields ? `<fieldset><legend>${esc(s.groups[g])}</legend>${fields}</fieldset>` : '';
+    const extra = g === 'colour' ? paletteCards(pattern, values, lang) : '';
+    return fields ? `<fieldset><legend>${esc(s.groups[g])}</legend>${extra}${fields}</fieldset>` : '';
   });
   return `<form class="card" id="controls" method="get" action="${pagePath(lang, pattern.id)}">
 ${groups.join('')}
@@ -259,7 +309,7 @@ export function renderPage(lang: Lang, pattern: Pattern, values: Values, rendere
   <section class="how card">
     <h2>${esc(s.howTitle)}</h2>
     ${how}
-    <p class="src">${esc(s.sourcesText)} <a href="${REPO_URL}/blob/main/docs/GEOMETRY.md">${esc(s.sourceLink)}</a></p>
+    <p class="src">${esc(s.sourcesText)} <a href="${REPO_URL}/blob/main/docs/GEOMETRY.md">${esc(s.sourceLink)}</a> · <a href="${REPO_URL}/blob/main/docs/COLOUR.md">${esc(s.colourLink)}</a></p>
   </section>
 </main>
 <footer>${esc(s.partOf)} <a href="${PUBLIC_ORIGIN}/${lang === 'mn' ? 'mn' : ''}">${esc(s.avdar)}</a> · <a href="${REPO_URL}">GitHub</a></footer>

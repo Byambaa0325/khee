@@ -251,6 +251,8 @@ export const alkhan: Pattern = {
     },
     ...frameParams(0),
   ],
+  palette: { ink: 'band', accent: 'accent', bg: 'ground' },
+  thumbnail: { layout: 'strip', across: 2, module: 4, padding: 4 },
   render(v: Values): Rendered {
     const m = numOf(v, 'module');
     const geo = alkhanGeometry({

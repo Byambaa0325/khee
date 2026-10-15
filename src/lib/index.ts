@@ -13,3 +13,4 @@ import { ulzii } from './ulzii.js';
 export const PATTERNS: Pattern[] = [ulzii, alkhan, ugalz];
 export const patternById = (id: string): Pattern | undefined => PATTERNS.find((p) => p.id === id);
 export type { Pt, Ribbon } from './svg.js';
+export { PALETTES, CHIPS, paletteValues, matchingPalette, type Palette, type Role } from './palettes.js';

@@ -246,3 +246,35 @@ describe('parameters', () => {
     expect(parseValues(params, Object.fromEntries(new URLSearchParams(q)))).toEqual(v);
   });
 });
+
+describe('palettes', () => {
+  it('apply to every multi-colour pattern, render, and are recognised once applied', async () => {
+    const { PALETTES, paletteValues, matchingPalette } = await import('../src/lib/index.js');
+    expect(PALETTES.length).toBeGreaterThanOrEqual(6);
+    for (const p of PATTERNS) {
+      for (const palette of PALETTES) {
+        const values = { ...defaults(p.params), ...paletteValues(p, palette) };
+        expect(matchingPalette(p, values)?.id).toBe(palette.id);
+        // A transparent ground keeps the match.
+        expect(matchingPalette(p, { ...values, bg: 'none' })?.id).toBe(palette.id);
+        expect(p.render({ ...values, ...p.thumbnail }).svg).toContain(paletteValues(p, palette)[Object.keys(p.palette!)[0]!] as string);
+      }
+    }
+  });
+
+  it('keeps the band readable on its ground and the centre line readable on its band', async () => {
+    const { PALETTES } = await import('../src/lib/index.js');
+    const lum = (hex: string) => {
+      const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * c[0]! + 0.7152 * c[1]! + 0.0722 * c[2]!;
+    };
+    const contrast = (a: string, b: string) => {
+      const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m);
+      return (x! + 0.05) / (y! + 0.05);
+    };
+    for (const p of PALETTES) {
+      expect(contrast(p.band, p.ground), `${p.id} band/ground`).toBeGreaterThanOrEqual(3);
+      expect(contrast(p.line, p.band), `${p.id} line/band`).toBeGreaterThanOrEqual(3);
+    }
+  });
+});

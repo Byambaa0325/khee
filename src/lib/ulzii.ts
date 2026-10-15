@@ -14,7 +14,7 @@
  */
 import { PALETTE, ribbonOf, ribbonParams } from './common.js';
 import { boolOf, numOf, strOf, t, type Pattern, type Rendered, type Values } from './schema.js';
-import { arcPoints, arcTo, boxOf, grow, pt, ribbonHalf, ribbonStrokes, rotate, svgDocument, type Pt } from './svg.js';
+import { arcPoints, arcTo, boxOf, grow, num, pt, ribbonHalf, ribbonStrokes, rotate, svgDocument, type Pt, type Ribbon } from './svg.js';
 
 export type Side = 'T' | 'R' | 'B' | 'L';
 export interface End {
@@ -168,6 +168,35 @@ export function ulziiGeometry({ n, cell: s, loops, mirror }: UlziiShape): UlziiG
   return { d, points, components: circuits.length, crossings, size };
 }
 
+/**
+ * Redraws the over-band at each crossing. The patch is built from side-by-side strips that do not
+ * overlap (outline, band, centre line, band, outline), each filled once. Its ends then sit on an
+ * identical band without any stacked edges, so no seam shows where a patch starts or stops; stacked
+ * strokes would blend ink into the band along each end.
+ */
+export function crossingPatches(crossings: UlziiGeometry['crossings'], reach: number, r: Ribbon): string {
+  const w = r.width / 2;
+  const c = r.centreWidth > 0 && r.centre !== 'none' ? Math.min(r.centreWidth, r.width) / 2 : 0;
+  // Strips across the band, as [from, to, colour]: offsets from the band's centre line.
+  const strips: [number, number, string][] = [];
+  if (r.outline > 0 && r.ink !== 'none') strips.push([-w - r.outline, -w, r.ink], [w, w + r.outline, r.ink]);
+  if (r.fill !== 'none') {
+    if (c > 0) strips.push([-w, -c, r.fill], [c, w, r.fill]);
+    else strips.push([-w, w, r.fill]);
+  }
+  if (c > 0) strips.push([-c, c, r.centre]);
+  const byColour = new Map<string, string>();
+  for (const { at: [x, y], verticalOver } of crossings) {
+    for (const [a, b, colour] of strips) {
+      const d = verticalOver
+        ? `M${pt([x + a, y - reach])}H${num(x + b)}V${num(y + reach)}H${num(x + a)}Z`
+        : `M${pt([x - reach, y + a])}V${num(y + b)}H${num(x + reach)}V${num(y + a)}Z`;
+      byColour.set(colour, (byColour.get(colour) ?? '') + d);
+    }
+  }
+  return [...byColour].map(([colour, d]) => `<path d="${d}" fill="${colour}"/>`).join('');
+}
+
 export const ulzii: Pattern = {
   id: 'ulzii',
   name: t('Ulzii · endless knot', 'Өлзий хээ'),
@@ -213,6 +242,8 @@ export const ulzii: Pattern = {
     { key: 'cell', kind: 'number', group: 'size', label: t('Grid spacing', 'Торын алхам'), min: 8, max: 120, step: 1, default: 40, unit: 'px' },
     ...ribbonParams({ width: 15, outline: 3, centre: 2.5, fill: PALETTE.blue, centreColor: PALETTE.white }),
   ],
+  palette: { ink: 'outline', fill: 'band', line: 'line', bg: 'ground' },
+  thumbnail: { cell: 14, band: 6, outline: 1.5, centre: 1.25, padding: 3 },
   render(v: Values): Rendered {
     const warnings: Rendered['warnings'] = [];
     const cell = numOf(v, 'cell');
@@ -229,11 +260,8 @@ export const ulzii: Pattern = {
     // Each over-pass is redrawn on top as a short straight piece that covers the under band and its
     // outline. It must stay inside the straight part of the band: within half a cell of the crossing.
     const reach = Math.min(cell / 2 - 0.01, half + Math.max(0.75, ribbon.outline / 2));
-    const over = geo.crossings
-      .map(({ at: [x, y], verticalOver }) => (verticalOver ? `M${pt([x, y - reach])}L${pt([x, y + reach])}` : `M${pt([x - reach, y])}L${pt([x + reach, y])}`))
-      .join('');
     const join = strOf(v, 'loops') === 'square' ? 'miter' : 'round';
-    let body = ribbonStrokes(geo.d, ribbon, 'butt', join) + ribbonStrokes(over, ribbon, 'butt', 'miter');
+    let body = ribbonStrokes(geo.d, ribbon, 'butt', join) + crossingPatches(geo.crossings, reach, ribbon);
 
     const c = geo.size / 2;
     const diamond = strOf(v, 'turn') === '45';

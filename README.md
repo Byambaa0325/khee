@@ -10,6 +10,10 @@ Mongolian ornament drawn by rule, not by eye. Three generators, each an exact co
 
 The rules, their sources and the checks behind them: [docs/GEOMETRY.md](docs/GEOMETRY.md).
 
+Colour palettes come from Mongolian colour symbolism: the state flag and emblem as the law defines them,
+the blue and five-colour khadag, the wind-horse flag, painted ger furniture and pillars, black and white.
+What each means and how well that is sourced: [docs/COLOUR.md](docs/COLOUR.md).
+
 The self-serve generator runs at **https://avdar.me/khee**: set the parameters and download SVG or PNG, or
 use the image URL directly. It is part of [Byambaa's Avdar](https://avdar.me), in English and Mongolian.
 

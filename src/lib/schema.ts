@@ -65,6 +65,10 @@ export interface Pattern {
   name: Text;
   summary: Text;
   params: ParamSpec[];
+  /** Which colour parameter takes which palette role (see palettes.ts). */
+  palette?: Record<string, 'outline' | 'band' | 'line' | 'ground' | 'accent'>;
+  /** Settings for a small preview, e.g. on a palette card. */
+  thumbnail?: Values;
   render(values: Values): Rendered;
 }
 
